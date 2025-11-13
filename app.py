@@ -1,36 +1,47 @@
-from flask import Flask, render_template, request
+import streamlit as st
 import pickle
 import numpy as np
 
-# ========== 1. Initialize Flask ==========
-app = Flask(__name__)
-
-# ========== 2. Load Model ==========
+# =============================
+# 1️⃣ Load Model
+# =============================
 with open("loan_approval_model.pkl", "rb") as f:
     model, scaler, le = pickle.load(f)
 
-# ========== 3. Home Route ==========
-@app.route('/')
-def home():
-    return render_template('index.html')
+# =============================
+# 2️⃣ App Title & Info
+# =============================
+st.set_page_config(page_title="🏦 Loan Approval Prediction", layout="centered")
 
-# ========== 4. Prediction Route ==========
-@app.route('/predict', methods=['POST'])
-def predict():
-    # Retrieve form data
-    gender = request.form['gender']
-    married = request.form['married']
-    dependents = request.form['dependents']
-    education = request.form['education']
-    self_employed = request.form['self_employed']
-    applicant_income = float(request.form['applicant_income'])
-    coapplicant_income = float(request.form['coapplicant_income'])
-    loan_amount = float(request.form['loan_amount'])
-    loan_term = float(request.form['loan_term'])
-    credit_history = float(request.form['credit_history'])
-    property_area = request.form['property_area']
+st.title("🏦 Loan Approval Prediction App")
+st.markdown("Fill the details below to check if your loan is likely to be approved.")
 
-    # Manual Encoding
+# =============================
+# 3️⃣ User Inputs
+# =============================
+with st.form("loan_form"):
+    col1, col2 = st.columns(2)
+
+    with col1:
+        gender = st.selectbox("Gender", ["Male", "Female"])
+        married = st.selectbox("Married", ["Yes", "No"])
+        dependents = st.selectbox("Dependents", ["0", "1", "2", "3+"])
+        education = st.selectbox("Education", ["Graduate", "Not Graduate"])
+        self_employed = st.selectbox("Self Employed", ["Yes", "No"])
+    with col2:
+        applicant_income = st.number_input("Applicant Income", min_value=0, step=100)
+        coapplicant_income = st.number_input("Co-applicant Income", min_value=0, step=100)
+        loan_amount = st.number_input("Loan Amount", min_value=0, step=10)
+        loan_term = st.number_input("Loan Amount Term (in days)", min_value=0, step=12)
+        credit_history = st.selectbox("Credit History", [1.0, 0.0])
+        property_area = st.selectbox("Property Area", ["Urban", "Rural", "Semiurban"])
+
+    submitted = st.form_submit_button("🔮 Predict Loan Approval")
+
+# =============================
+# 4️⃣ Manual Encoding
+# =============================
+if submitted:
     gender_map = {"Male": 1, "Female": 0}
     married_map = {"Yes": 1, "No": 0}
     dependents_map = {"0": 0, "1": 1, "2": 2, "3+": 3}
@@ -49,19 +60,22 @@ def predict():
         loan_amount,
         loan_term,
         credit_history,
-        property_map[property_area]
+        property_map[property_area],
     ]
 
-    # Convert to array and scale
+    # =============================
+    # 5️⃣ Preprocess & Predict
+    # =============================
     X_input = np.array(input_data).reshape(1, -1)
     X_input_scaled = scaler.transform(X_input)
 
-    # Prediction
     prediction = model.predict(X_input_scaled)[0]
-    result = "✅ Loan Approved" if prediction == 1 else "❌ Loan Not Approved"
 
-    return render_template('index.html', prediction_text=result)
-
-# ========== 5. Run App ==========
-if __name__ == '__main__':
-    app.run(debug=True)
+    # =============================
+    # 6️⃣ Display Result
+    # =============================
+    st.markdown("---")
+    if prediction == 1:
+        st.success("✅ Loan Approved! Congratulations 🎉")
+    else:
+        st.error("❌ Loan Not Approved. Try improving your profile or credit history.")
